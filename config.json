@@ -1,0 +1,68 @@
+[
+  {
+    "window": "crx_jmlfbgamfhbhiiimabijjiphfihdajkk",
+    "screen": 1,
+    "workspace": 0,
+    "actions": ["sticky", "fullscreen"]
+  },
+  {
+    "window": "slack",
+    "screen": 1,
+    "workspace": 0,
+    "actions": ["fullscreen", "sticky"]
+  },
+  {
+    "window": "keepassxc",
+    "screen": 1,
+    "workspace": 0,
+    "actions": ["fullscreen", "sticky"]
+  },
+  {
+    "window": "Google-chrome",
+    "screen": 1,
+    "workspace": 0,
+    "actions": ["fullscreen", "sticky"]
+  },
+  {
+    "window": "crx_blolepeanghapmhjfpjfbegpakcjphkb",
+    "screen": 3,
+    "workspace": 0,
+    "actions": ["fullscreen", "sticky"]
+  },
+  {
+    "window": "crx_dgpbecgflcafkafpebakapmjffajbdkc",
+    "screen": 2,
+    "workspace": 0,
+    "actions": ["fullscreen"]
+  },
+  {
+    "window": "thunderbird",
+    "screen": 0,
+    "workspace": 0,
+    "actions": ["fullscreen"]
+  },
+  {
+    "window": "jetbrains-idea",
+    "screen": 2,
+    "workspace": 1,
+    "actions": ["fullscreen"]
+  },
+  {
+    "window": "Wfica",
+    "screen": 0,
+    "workspace": 2,
+    "actions": ["move"]
+  },
+  {
+    "window": "selfservice",
+    "screen": 1,
+    "workspace": 2,
+    "actions": ["topRight"]
+  },
+  {
+    "window": "code - insiders",
+    "screen": 3,
+    "workspace": 3,
+    "actions": ["sticky"]
+  }
+]

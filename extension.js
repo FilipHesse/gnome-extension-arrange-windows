@@ -1,22 +1,25 @@
-const { Meta, GLib } = imports.gi;
+const { Meta, GLib, Gio } = imports.gi;
 const Main = imports.ui.main;
 const WorkspaceManager = global.workspace_manager;
 const Mainloop = imports.mainloop;
+const ExtensionUtils = imports.misc.extensionUtils;
+const Me = ExtensionUtils.getCurrentExtension();
 
 function getWMClass(win) {
     return win.get_wm_class_instance() || win.get_wm_class();
 }
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+function sleep() {
+    let sleep_for_ms = 2000;
+    return new Promise(resolve => setTimeout(resolve, sleep_for_ms));
 }
 
 function logMonitorGeometries() {
-    global.log("Listing monitor geometries, indices, and names:");
+    global.log("  Listing monitor geometries, indices, and names:");
     let monitors = Main.layoutManager.monitors;
     for (let i = 0; i < monitors.length; i++) {
         let monitor = monitors[i];
-        global.log("Monitor " + i + ": name=" + monitor.connector + ", x=" + monitor.x + ", y=" + monitor.y + ", width=" + monitor.width + ", height=" + monitor.height);
+        global.log("  Monitor " + i + ": name=" + monitor.connector + ", x=" + monitor.x + ", y=" + monitor.y + ", width=" + monitor.width + ", height=" + monitor.height);
     }
 }
 
@@ -39,10 +42,7 @@ function getCustomMonitorIndexMapping() {
     return indexMapping;
 }
 
-function moveWindowsToScreenAndWorkspace(wmClass, customScreenIndex, workspaceIndex) {
-    global.log(`moveWindowsToScreenAndWorkspace called with wmClass: ${wmClass}, customScreenIndex: ${customScreenIndex}, workspaceIndex: ${workspaceIndex}`);
-    let windows = global.get_window_actors().map(actor => actor.meta_window);
-    let movedWindows = 0;
+function getMonitorByCustomIndex(customScreenIndex) {
     let indexMapping = getCustomMonitorIndexMapping();
     let screenIndex = indexMapping[customScreenIndex];
 
@@ -56,7 +56,15 @@ function moveWindowsToScreenAndWorkspace(wmClass, customScreenIndex, workspaceIn
         global.log(`Monitor not found for screen index: ${screenIndex}`);
         return;
     }
+    return monitor
+}
 
+async function moveWindowsToScreenAndWorkspace(wmClass, customScreenIndex, workspaceIndex) {
+    global.log(`moveWindowsToScreenAndWorkspace called with wmClass: ${wmClass}, customScreenIndex: ${customScreenIndex}, workspaceIndex: ${workspaceIndex}`);
+    let windows = global.get_window_actors().map(actor => actor.meta_window);
+    let movedWindows = 0;
+    
+    let monitor = getMonitorByCustomIndex(customScreenIndex)
     for (let win of windows) {
         global.log(`Checking window: ${getWMClass(win)}`);
         let winClass = getWMClass(win).toLowerCase();
@@ -66,12 +74,14 @@ function moveWindowsToScreenAndWorkspace(wmClass, customScreenIndex, workspaceIn
             if (workspace) {
                 global.log(`Moving window to workspace: ${workspaceIndex}`);
                 win.change_workspace(workspace);
+                await sleep()
 
                 // Ensure the monitor dimensions and positions are valid
                 if (monitor.x >= 0 && monitor.y >= 0 && monitor.width > 0 && monitor.height > 0) {
                     global.log(`Moving window to monitor at x=${monitor.x}, y=${monitor.y}`);
                     win.move_frame(true, monitor.x, monitor.y);
                     win.activate(global.get_current_time());
+                    await sleep()
                     movedWindows++;
                 } else {
                     global.log(`Invalid monitor dimensions or position: x=${monitor.x}, y=${monitor.y}, width=${monitor.width}, height=${monitor.height}`);
@@ -85,12 +95,12 @@ function moveWindowsToScreenAndWorkspace(wmClass, customScreenIndex, workspaceIn
 }
 
 function makeWindowsFullscreen(wmClass) {
-    global.log("makeWindowsFullscreen called with wmClass: " + wmClass);
+    global.log("  makeWindowsFullscreen called with wmClass: " + wmClass);
     let windows = global.get_window_actors().map(actor => actor.meta_window);
     for (let win of windows) {
-        global.log("Checking window: " + getWMClass(win));
+        global.log("  Checking window: " + getWMClass(win));
         if (getWMClass(win) === wmClass) {
-            global.log("Found window: " + getWMClass(win));
+            global.log("  Found window: " + getWMClass(win));
             win.maximize(Meta.MaximizeFlags.BOTH);
             win.activate(global.get_current_time());
         }
@@ -98,20 +108,21 @@ function makeWindowsFullscreen(wmClass) {
 }
 
 function makeWindowsSticky(wmClass) {
-    global.log("makeWindowsSticky called with wmClass: " + wmClass);
+    global.log("  makeWindowsSticky called with wmClass: " + wmClass);
     let windows = global.get_window_actors().map(actor => actor.meta_window);
     for (let win of windows) {
-        global.log("Checking window: " + getWMClass(win));
+        global.log("  Checking window: " + getWMClass(win));
         if (getWMClass(win) === wmClass) {
-            global.log("Found window: " + getWMClass(win));
+            global.log("  Found window: " + getWMClass(win));
             win.stick();
             win.activate(global.get_current_time());
         }
     }
 }
 
-function moveAndResizeWindow(win, xFactor, yFactor, widthFactor, heightFactor) {
-    let monitor = global.display.get_monitor_geometry(win.get_monitor());
+function moveAndResizeWindow(win, customScreenIndex, xFactor, yFactor, widthFactor, heightFactor) {
+    let monitor = getMonitorByCustomIndex(customScreenIndex)
+    global.log("  Windows detected on monitor: x=" + monitor.x + ", y=" + monitor.y + ", width=" + monitor.width + ", height=" + monitor.height);
     let newX = monitor.x + monitor.width * xFactor;
     let newY = monitor.y + monitor.height * yFactor;
     let newWidth = monitor.width * widthFactor;
@@ -122,7 +133,7 @@ function moveAndResizeWindow(win, xFactor, yFactor, widthFactor, heightFactor) {
     global.log(`Window moved and resized: ${getWMClass(win)}`);
 }
 
-function moveAndResizeWindows(wmClass, xFactor, yFactor, widthFactor, heightFactor) {
+function moveAndResizeWindows(wmClass, customScreenIndex, xFactor, yFactor, widthFactor, heightFactor) {
     global.log(`moveAndResizeWindows called with wmClass: ${wmClass}, xFactor: ${xFactor}, yFactor: ${yFactor}, widthFactor: ${widthFactor}, heightFactor: ${heightFactor}`);
     let windows = global.get_window_actors().map(actor => actor.meta_window);
     for (let win of windows) {
@@ -134,7 +145,7 @@ function moveAndResizeWindows(wmClass, xFactor, yFactor, widthFactor, heightFact
             win.unmaximize(Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL);
             // Add a delay to ensure the unmaximize operation completes
             global.log(`Attempting to move and resize window after unmaximize: ${winClass}`);
-            moveAndResizeWindow(win, xFactor, yFactor, widthFactor, heightFactor);
+            moveAndResizeWindow(win, customScreenIndex, xFactor, yFactor, widthFactor, heightFactor);
             return GLib.SOURCE_REMOVE;
 
         } else {
@@ -144,43 +155,43 @@ function moveAndResizeWindows(wmClass, xFactor, yFactor, widthFactor, heightFact
 }
 
 
-function moveWindowsToLeftHalf(wmClass) {
-    moveAndResizeWindows(wmClass, 0, 0, 0.5, 1);
+function moveWindowsToLeftHalf(wmClass, customScreenIndex) {
+    moveAndResizeWindows(wmClass, customScreenIndex, 0, 0, 0.5, 1);
 }
 
-function moveWindowsToRightHalf(wmClass) {
-    moveAndResizeWindows(wmClass, 0.5, 0, 0.5, 1);
+function moveWindowsToRightHalf(wmClass, customScreenIndex) {
+    moveAndResizeWindows(wmClass, customScreenIndex, 0.5, 0, 0.5, 1);
 }
 
-function moveWindowsToTopRight(wmClass) {
-    moveAndResizeWindows(wmClass, 0.5, 0, 0.5, 0.5);
+function moveWindowsToTopRight(wmClass, customScreenIndex) {
+    moveAndResizeWindows(wmClass, customScreenIndex, 0.5, 0, 0.5, 0.5);
 }
 
-function moveWindowsToLowRight(wmClass) {
-    moveAndResizeWindows(wmClass, 0.5, 0.5, 0.5, 0.5);
+function moveWindowsToLowRight(wmClass, customScreenIndex) {
+    moveAndResizeWindows(wmClass, customScreenIndex, 0.5, 0.5, 0.5, 0.5);
 }
 
-function moveWindowsToTopLeft(wmClass) {
-    moveAndResizeWindows(wmClass, 0, 0, 0.5, 0.5);
+function moveWindowsToTopLeft(wmClass, customScreenIndex) {
+    moveAndResizeWindows(wmClass, customScreenIndex, 0, 0, 0.5, 0.5);
 }
 
-function moveWindowsToLowLeft(wmClass) {
-    moveAndResizeWindows(wmClass, 0, 0.5, 0.5, 0.5);
+function moveWindowsToLowLeft(wmClass, customScreenIndex) {
+    moveAndResizeWindows(wmClass, customScreenIndex, 0, 0.5, 0.5, 0.5);
 }
 
 function logAllWMClasses() {
-    global.log("Listing WM_CLASS properties of all open windows:");
+    global.log("  Listing WM_CLASS properties of all open windows:");
     let windows = global.get_window_actors().map(actor => actor.meta_window);
     for (let win of windows) {
-        global.log("Window WM_CLASS: " + getWMClass(win));
+        global.log("  Window WM_CLASS: " + getWMClass(win));
     }
 }
 
 function listAllWindows() {
-    global.log("Listing all open windows with their titles:");
+    global.log("  Listing all open windows with their titles:");
     let windows = global.get_window_actors().map(actor => actor.meta_window);
     for (let win of windows) {
-        global.log("Window title: " + win.get_title());
+        global.log("  Window title: " + win.get_title());
     }
 }
 
@@ -188,79 +199,77 @@ function listAllWindows() {
 function init() {
 }
 
+async function executeSequence(config) {
+    for (const item of config) {
+        const { window, screen, workspace, actions } = item;
+        global.log("MODIFYING WINDOW: " + window + " -------------------------------------------------");
+        await moveWindowsToScreenAndWorkspace(window, screen, workspace);
+        await sleep();
+
+        if (actions.includes('sticky')) {
+            makeWindowsSticky(window);
+        }
+
+        if (actions.includes('fullscreen')) {
+            makeWindowsFullscreen(window);
+        }
+
+        if (actions.includes('leftHalf')) {
+            moveWindowsToLeftHalf(window, screen);
+        }
+
+        if (actions.includes('rightHalf')) {
+            moveWindowsToRightHalf(window, screen);
+        }
+
+        if (actions.includes('topRight')) {
+            moveWindowsToTopRight(window, screen);
+        }
+
+        if (actions.includes('lowRight')) {
+            moveWindowsToLowRight(window, screen);
+        }
+
+        if (actions.includes('topLeft')) {
+            moveWindowsToTopLeft(window, screen);
+        }
+
+        if (actions.includes('lowLeft')) {
+            moveWindowsToLowLeft(window, screen);
+        }
+    }
+}
+
+async function readFile(relativeFilePath) {
+    try {
+      let filePath = Me.dir.get_path() + '/' + relativeFilePath;
+      let file = Gio.File.new_for_path(filePath);
+      let [success, contents] = file.load_contents(null);
+  
+      if (success) {
+        return contents.toString();
+      } else {
+        throw new Error('Failed to read file');
+      }
+    } catch (error) {
+      console.error('Error reading file:', error);
+      return null;
+    }
+  }
+
 async function enable() {
     logMonitorGeometries();
     listAllWindows(); // List all windows when the extension is enabled
     logAllWMClasses(); // Log WM_CLASS properties when the extension is enabled
-    let sleep_for_ms = 500;
-    await sleep(sleep_for_ms);
-    moveWindowsToScreenAndWorkspace("crx_jmlfbgamfhbhiiimabijjiphfihdajkk", 1, 0); //webex
-    await sleep(sleep_for_ms);
-    makeWindowsSticky("crx_jmlfbgamfhbhiiimabijjiphfihdajkk");
-    await sleep(sleep_for_ms);
-    makeWindowsFullscreen("crx_jmlfbgamfhbhiiimabijjiphfihdajkk");
-    await sleep(sleep_for_ms);
-    
-    moveWindowsToScreenAndWorkspace("slack", 1, 0);
-    await sleep(sleep_for_ms);
-    makeWindowsFullscreen("slack");
-    await sleep(sleep_for_ms);
-    makeWindowsSticky("slack");
-    await sleep(sleep_for_ms);
-    
-    moveWindowsToScreenAndWorkspace("keepassxc", 1, 0);
-    await sleep(sleep_for_ms);
-    makeWindowsFullscreen("keepassxc");
-    await sleep(sleep_for_ms);
-    makeWindowsSticky("keepassxc");
-    await sleep(sleep_for_ms);
 
-    moveWindowsToScreenAndWorkspace("Google-chrome", 1, 0); 
-    await sleep(sleep_for_ms);
-    makeWindowsFullscreen("Google-chrome");
-    await sleep(sleep_for_ms);
-    makeWindowsSticky("Google-chrome");
-    await sleep(sleep_for_ms);
+    const relativeFilePath = 'config.json'; // Relative path to the file within the extension directory
+    const fileContents = await readFile(relativeFilePath);
+  
+    if (fileContents) {
+      const config = JSON.parse(fileContents);
+      await executeSequence(config);
+    }
 
-    moveWindowsToScreenAndWorkspace("crx_blolepeanghapmhjfpjfbegpakcjphkb", 3, 0);  //TAIA
-    await sleep(sleep_for_ms);
-    makeWindowsFullscreen("crx_blolepeanghapmhjfpjfbegpakcjphkb");
-    await sleep(sleep_for_ms);
-    makeWindowsSticky("crx_blolepeanghapmhjfpjfbegpakcjphkb");
-    await sleep(sleep_for_ms);
-
-
-    
-    moveWindowsToScreenAndWorkspace("crx_dgpbecgflcafkafpebakapmjffajbdkc", 2, 0); //Jira
-    await sleep(sleep_for_ms);
-    makeWindowsFullscreen("crx_dgpbecgflcafkafpebakapmjffajbdkc");
-    await sleep(sleep_for_ms);
-    moveWindowsToScreenAndWorkspace("thunderbird", 0, 0); 
-    await sleep(sleep_for_ms);
-    makeWindowsFullscreen("thunderbird");
-    await sleep(sleep_for_ms);
-
-
-
-    moveWindowsToScreenAndWorkspace("jetbrains-idea", 2, 1); 
-    await sleep(sleep_for_ms);
-    makeWindowsFullscreen("jetbrains-idea");
-    await sleep(sleep_for_ms);
-
-
-    
-    moveWindowsToScreenAndWorkspace("Wfica", 0, 2);
-    await sleep(sleep_for_ms);
-    moveWindowsToScreenAndWorkspace("selfservice", 1, 2); 
-    await sleep(sleep_for_ms);
-    moveWindowsToTopRight("selfservice"); 
-    await sleep(sleep_for_ms);
-
-
-    moveWindowsToScreenAndWorkspace("code - insiders", 3, 3); 
-    await sleep(sleep_for_ms);
-    makeWindowsSticky("code - insiders");
-    await sleep(sleep_for_ms);
 }
 
 function disable() {
