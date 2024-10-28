@@ -51,13 +51,13 @@
     "window": "Wfica",
     "screen": 0,
     "workspace": 2,
-    "actions": ["move"]
+    "actions": []
   },
   {
     "window": "selfservice",
     "screen": 1,
     "workspace": 2,
-    "actions": ["topRight"]
+    "actions": []
   },
   {
     "window": "code - insiders",

@@ -10,7 +10,7 @@ function getWMClass(win) {
 }
 
 function sleep() {
-    let sleep_for_ms = 2000;
+    let sleep_for_ms = 500;
     return new Promise(resolve => setTimeout(resolve, sleep_for_ms));
 }
 
@@ -59,7 +59,7 @@ function getMonitorByCustomIndex(customScreenIndex) {
     return monitor
 }
 
-async function moveWindowsToScreenAndWorkspace(wmClass, customScreenIndex, workspaceIndex) {
+function moveWindowsToScreenAndWorkspace(wmClass, customScreenIndex, workspaceIndex) {
     global.log(`moveWindowsToScreenAndWorkspace called with wmClass: ${wmClass}, customScreenIndex: ${customScreenIndex}, workspaceIndex: ${workspaceIndex}`);
     let windows = global.get_window_actors().map(actor => actor.meta_window);
     let movedWindows = 0;
@@ -74,14 +74,12 @@ async function moveWindowsToScreenAndWorkspace(wmClass, customScreenIndex, works
             if (workspace) {
                 global.log(`Moving window to workspace: ${workspaceIndex}`);
                 win.change_workspace(workspace);
-                await sleep()
 
                 // Ensure the monitor dimensions and positions are valid
                 if (monitor.x >= 0 && monitor.y >= 0 && monitor.width > 0 && monitor.height > 0) {
                     global.log(`Moving window to monitor at x=${monitor.x}, y=${monitor.y}`);
                     win.move_frame(true, monitor.x, monitor.y);
                     win.activate(global.get_current_time());
-                    await sleep()
                     movedWindows++;
                 } else {
                     global.log(`Invalid monitor dimensions or position: x=${monitor.x}, y=${monitor.y}, width=${monitor.width}, height=${monitor.height}`);
@@ -203,39 +201,47 @@ async function executeSequence(config) {
     for (const item of config) {
         const { window, screen, workspace, actions } = item;
         global.log("MODIFYING WINDOW: " + window + " -------------------------------------------------");
-        await moveWindowsToScreenAndWorkspace(window, screen, workspace);
+        moveWindowsToScreenAndWorkspace(window, screen, workspace);
         await sleep();
 
         if (actions.includes('sticky')) {
             makeWindowsSticky(window);
+            await sleep();
         }
 
         if (actions.includes('fullscreen')) {
             makeWindowsFullscreen(window);
+            await sleep();
         }
 
         if (actions.includes('leftHalf')) {
             moveWindowsToLeftHalf(window, screen);
+            await sleep();
         }
 
         if (actions.includes('rightHalf')) {
             moveWindowsToRightHalf(window, screen);
+            await sleep();
         }
 
         if (actions.includes('topRight')) {
             moveWindowsToTopRight(window, screen);
+            await sleep();
         }
 
         if (actions.includes('lowRight')) {
             moveWindowsToLowRight(window, screen);
+            await sleep();
         }
 
         if (actions.includes('topLeft')) {
             moveWindowsToTopLeft(window, screen);
+            await sleep();
         }
 
         if (actions.includes('lowLeft')) {
             moveWindowsToLowLeft(window, screen);
+            await sleep();
         }
     }
 }
